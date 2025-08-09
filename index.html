@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HID Passthrough Tool</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      height: 100vh;
+      background-color: #f7f7ff;
+    }
+
+    div {
+      height: calc(100% - 4rem);
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: 2rem 1fr;
+      row-gap: 1rem;
+      column-gap: 2rem;
+    }
+
+    textarea {
+      resize: none;
+      overflow-y: scroll;
+      overflow-x: hidden;
+      padding: 1rem;
+    }
+
+    .showshow {
+      width: 500px;
+      height: 500px;
+      overflow-y: scroll;
+      overflow-x: hidden;
+      padding: 1rem;
+    }
+  </style>
+  <script>
+    if ("hid" in navigator) {
+      // 浏览器支持hid
+    } else {
+      alert("Your browser is not support Web HID API.");
+    }
+  </script>
+</head>
+
+<body>
+  <div>
+    <!-- <div id="devicexx">  </div> -->
+    <button id="btnOpen">open</button>
+    <textarea id="spanInput" class="showshow" readonly></textarea>
+  </div>
+  <script>
+    const btnOpen = document.querySelector("#btnOpen");
+
+   
+    let device; // 需要连接或已连接的设备
+    let inputDataLength; // 发送数据包长度
+    let outputDataLength; // 发送数据包长度
+    var devicexx;
+
+    // 打开设备相关操作
+    btnOpen.onclick = async () => {
+      try {
+        const devices = await navigator.hid.requestDevice({ filters: [] });
+
+        // const devices = await navigator.hid.requestDevice({
+        //     filters: [{
+        //         vendorId: 0xabcd,  // 根据VID进行过滤
+        //         productId: 0x1234, // 根据PID进行过滤
+        //         usagePage: 0x0c,   // 根据usagePage进行过滤
+        //         usage: 0x01,       // 根据usage进行过滤
+        //     },],
+        // });
+
+        // let devices = await navigator.hid.getDevices(); // getDevices方法可以返回已连接的授权过的设备列表
+
+        if (devices.length == 0) {
+          // "No device selected\n\n";
+          return;
+        }
+
+        device = devices[0]; // 选择列表中第一个设备
+
+        if (!device.opened) {
+          // 检查设备是否打开
+          await device.open(); // 打开设备
+
+          // 下面几行代码和我的自定义的透传的HID设备有关
+          // 我的设备中有一个collection，包含一个input、一个output
+          // inputReports和outputReports数据是Array，reportSize是8
+          // reportCount表示一包数据的字节数，USB-FS 和 USB-HS 设置的reportCount最大值不同
+          if (device.collections[0].inputReports[0].items[0].isArray && device.collections[0].inputReports[0].items[0].reportSize === 8) {
+
+            inputDataLength = device.collections[0].inputReports[0].items[0].reportCount ?? 0;
+          }
+          if (device.collections[0].outputReports[0].items[0].isArray && device.collections[0].outputReports[0].items[0].reportSize === 8) {
+            // 发送数据包长度必须和报告描述符中描述的一致
+            outputDataLength = device.collections[0].outputReports[0].items[0].reportCount ?? 0;
+          }
+
+        }
+        // await device.close(); // 关闭设备
+        // await device.forget() // 遗忘设备
+
+        // 电脑接收到来自设备的消息回调
+        var condition = 0
+        device.oninputreport = (event) => {
+          condition++
+          if (condition < 10) {
+            return
+          }
+          condition = 0
+
+          let array = new Uint8Array(event.data.buffer); // event.data.buffer就是接收到的inputreport包数据了
+          let hexstr = "";
+          for (const data of array) {
+            hexstr += (Array(2).join(0) + data.toString(16).toUpperCase()).slice(-2) + " "; // 将字节数据转换成（XX ）形式字符串
+          }
+
+
+          var xx = parsePowerMeterHID(hexstr)
+
+          console.log(xx.powerConsistency);
+
+          console.log('========================================');
+          console.log(hexstr);
+          console.log(xx);
+          console.log('========================================');
+          spanInput.value = `
+          电压: ${xx.voltage} 
+          电流: ${xx.current} 
+          功率: ${xx.powerConsistency}
+          ============================================
+          D+电压: ${xx.dVoltage1} 
+          D-电压: ${xx.dVoltage2} 
+          ===========================================
+          积累数据组: ${xx.type === 0 ? '1' : '2'}
+          Ah积累: ${xx.Ah} 
+          Wh积累: ${xx.Wh} 
+          时间: ${xx.time} 
+         
+          `;
+
+        };
+
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+
+    function parsePowerMeterHID(hexString) {
+      // 移除所有非十六进制字符（包括行首地址）
+      const cleanHex = hexString.replace(/[^0-9a-fA-F]/g, '');
+
+      // 验证长度
+      if (cleanHex.length !== 128) { // 64字节 * 2个字符/字节
+        throw new Error(`无效的报文长度: ${cleanHex.length} 字符，应为128字符`);
+      }
+
+      // 将十六进制字符串转换为字节数组
+      const bytes = [];
+      for (let i = 0; i < cleanHex.length; i += 2) {
+        bytes.push(parseInt(cleanHex.substr(i, 2), 16));
+      }
+
+      // 辅助函数：提取小端序浮点数
+      const parseFloatLE = (offset) => {
+        const buffer = new ArrayBuffer(4);
+        const view = new DataView(buffer);
+        for (let i = 0; i < 4; i++) {
+          view.setUint8(i, bytes[offset + i]);
+        }
+        return view.getFloat32(0, true);
+      };
+
+      // 辅助函数：提取小端序16位整数
+      const parseUInt16LE = (offset) => {
+        return (bytes[offset + 1] << 8) | bytes[offset];
+      };
+
+      // 辅助函数：提取大端序16位整数
+      const parseUInt16BE = (offset) => {
+        return (bytes[offset] << 8) | bytes[offset + 1];
+      };
+
+      const secondsToHMS = (seconds) => {
+        // 确保输入是数字
+        const totalSeconds = Number(seconds);
+
+        // 计算小时、分钟、剩余秒
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const secs = Math.floor(totalSeconds % 60);
+
+        const parts = [];
+        if (hours) parts.push(`${hours}小时`);
+        if (minutes) parts.push(`${minutes}分钟`);
+        if (secs || parts.length === 0) parts.push(`${secs}秒`);
+
+        return parts.join('');
+
+      }
+
+
+
+      // 解析关键字段
+      const result = {
+        // 帧头标识
+        // header: `0x${bytes[0].toString(16).padStart(2, '0')}${bytes[1].toString(16).padStart(2, '0')}`,
+
+        // D+电压 (30-33字节) 
+        dVoltage1: parseFloatLE(30).toFixed(5) ,
+
+        // D-电压 (34-37字节)  
+        dVoltage2: parseFloatLE(34).toFixed(5),
+
+        // Ah积累(14-17字节)  
+        Ah: parseFloatLE(14).toFixed(5),
+
+        // Wh积累(18-21字节)  
+        Wh: parseFloatLE(18).toFixed(5),
+
+        // 电压 (46-49字节)   
+        voltage: parseFloatLE(46).toFixed(5),
+
+        // 瞬时电流 (50-53字节小端浮点)  
+        current: parseFloatLE(50).toFixed(5),
+        // 累积时间 (22-23字节小端浮点)  
+        time: secondsToHMS(parseUInt16LE(22)),
+
+        type: bytes[54], // 设备类型
+        //  type: bytes[54] === 0 ? '1' : '2', // 设备类型
+        
+
+        // 原始十六进制字符串
+        // rawHex: cleanHex
+      };
+
+
+      const voltage = parseFloatLE(46);
+      const current = parseFloatLE(50);
+      const calcPower = (voltage * Math.abs(current)).toFixed(5);
+      result.powerConsistency = calcPower
+
+      return result;
+    }
+
+  </script>
+</body>
+
+</html>
