@@ -36,6 +36,14 @@
     <button id="btnOpen">open</button>
     <textarea id="spanInput" class="showshow" readonly></textarea>
     <div id="main" style="width: 90%; height: 600px;"></div>
+    <div>
+      <label for="barType">选择统计类型:</label>
+      <select id="barType">
+        <option value="power">功率</option>
+        <option value="current">电流</option>
+        <option value="voltage">电压</option>
+      </select>
+    </div>
     <div id="powerBarChart" style="width: 50%; height: 400px; margin-top: 30px;"></div>
   </div>
   <script>
@@ -60,32 +68,67 @@
       return `${Math.floor(power / bucketSize) * bucketSize}~${(Math.floor(power / bucketSize) + 1) * bucketSize}`;
     }
 
+    // 电流分布统计桶
+    let currentBuckets = {};
+    let currentBucketSize = 1;
+    function getCurrentBucket(current) {
+      return `${Math.floor(current / currentBucketSize) * currentBucketSize}~${(Math.floor(current / currentBucketSize) + 1) * currentBucketSize}`;
+    }
+
+    // 电压分布统计桶
+    let voltageBuckets = {};
+    let voltageBucketSize = 1;
+    function getVoltageBucket(voltage) {
+      return `${Math.floor(voltage / voltageBucketSize) * voltageBucketSize}~${(Math.floor(voltage / voltageBucketSize) + 1) * voltageBucketSize}`;
+    }
+
+    const barTypeSelect = document.getElementById('barType');
+
     function updatePowerBarChart() {
-      const bucketKeys = Object.keys(powerBuckets).sort((a, b) => {
-        // 按区间起始值排序
-        return parseFloat(a.split('~')[0]) - parseFloat(b.split('~')[0]);
-      });
-      const bucketTimes = bucketKeys.map(k => powerBuckets[k]);
+      let type = barTypeSelect.value;
+      let keys, times, title, color;
+      if (type === 'power') {
+        keys = Object.keys(powerBuckets).sort((a, b) => parseFloat(a.split('~')[0]) - parseFloat(b.split('~')[0]));
+        times = keys.map(k => powerBuckets[k]);
+        title = '功率分布统计（累计时间）';
+        color = '#5470C6';
+      } else if (type === 'current') {
+        keys = Object.keys(currentBuckets).sort((a, b) => parseFloat(a.split('~')[0]) - parseFloat(b.split('~')[0]));
+        times = keys.map(k => currentBuckets[k]);
+        title = '电流分布统计（累计时间）';
+        color = '#91CC75';
+      } else {
+        keys = Object.keys(voltageBuckets).sort((a, b) => parseFloat(a.split('~')[0]) - parseFloat(b.split('~')[0]));
+        times = keys.map(k => voltageBuckets[k]);
+        title = '电压分布统计（累计时间）';
+        color = '#FAC858';
+      }
+
       powerBarChart.setOption({
-        title: { text: '功率分布统计（累计时间）' },
+        title: { text: title },
         tooltip: { trigger: 'axis' },
         xAxis: {
           type: 'category',
-          data: bucketKeys,
-          name: '功率区间'
+          data: keys,
+          name: '区间',
+          axisLabel: { rotate: 45 }
         },
         yAxis: {
           type: 'value',
           name: '累计时间（秒）'
         },
         series: [{
-          name: '累计时间',
+          name: title,
           type: 'bar',
-          data: bucketTimes,
-          barWidth: 20
+          data: times,
+          barWidth: 20,
+          itemStyle: { color }
         }]
       });
     }
+
+    // 切换统计类型时刷新柱状图
+    barTypeSelect.onchange = updatePowerBarChart;
 
     let times = []; // x轴时间
     let voltages = []; // 电压
@@ -109,10 +152,8 @@
         data: times,
         name: '时间',
         axisLabel: {
-          interval: 4, // 每隔4个显示一个刻度标签，可根据实际数据量调整
+          interval: (index) => index % Math.ceil(data.length / 10) === 0,
           formatter: function (value) {
-            // value 是 times 数组里的每个元素（秒数或已格式化字符串）
-            // 如果 value 是数字，则格式化为时:分:秒
             if (typeof value === 'number' || /^\d+$/.test(value)) {
               const sec = Number(value);
               const h = Math.floor(sec / 3600);
@@ -120,7 +161,6 @@
               const s = sec % 60;
               return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
             }
-            // 如果已经是字符串则直接返回
             return value;
           }
         }
@@ -220,9 +260,20 @@
             });
 
             // 功率分布统计
-            const bucket = getPowerBucket(Number(xx.powerConsistency));
-            if (!powerBuckets[bucket]) powerBuckets[bucket] = 0;
-            powerBuckets[bucket] += 1; // 每秒采集一次，累计秒数
+            const powerBucket = getPowerBucket(Number(xx.powerConsistency));
+            if (!powerBuckets[powerBucket]) powerBuckets[powerBucket] = 0;
+            powerBuckets[powerBucket] += 1;
+
+            // 电流分布统计
+            const currentBucket = getCurrentBucket(Number(xx.current));
+            if (!currentBuckets[currentBucket]) currentBuckets[currentBucket] = 0;
+            currentBuckets[currentBucket] += 1;
+
+            // 电压分布统计
+            const voltageBucket = getVoltageBucket(Number(xx.voltage));
+            if (!voltageBuckets[voltageBucket]) voltageBuckets[voltageBucket] = 0;
+            voltageBuckets[voltageBucket] += 1;
+
             updatePowerBarChart();
           }
         };
