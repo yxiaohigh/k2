@@ -174,7 +174,6 @@
   <div class="container">
     <div class="side-card">
       <button id="btnOpen" class="btn">连接设备</button>
-      <button id="closeBtn" class="btn">断开设备 </button>
       <div class="value-summary" id="valueSummary">
         <div class="value-row">
           <span class="value-label">电压:</span>
@@ -242,7 +241,6 @@
   </div>
   <script>
     const btnOpen = document.querySelector("#btnOpen");
-    const closeBtn = document.querySelector("#closeBtn");
     let device;
     let inputDataLength;
     let outputDataLength;
@@ -451,11 +449,6 @@
       ].join(':');
     }
 
-    closeBtn.onclick = async () => {
-      if (device && device.opened) {
-        await device.close();
-      }
-    }
     btnOpen.onclick = async () => {
       try {
         const devices = await navigator.hid.requestDevice({ filters: [] });
@@ -464,17 +457,14 @@
         }
         device = devices[0];
         if (!device.opened) {
-          times = [];
-          voltages = [];
-          currents = [];
-          powers = [];
           await device.open();
         }
 
         startTime = Date.now();
+        lastTime = Date.now();
         let updateCount = 0; // 刷新计数器
-        const UPDATE_INTERVAL = 5; // 每 次采集刷新一次
-        const INTERVAL = 200; // 每 次采集刷新一次
+        const UPDATE_INTERVAL = 2; // 次采集刷新一次图
+        const INTERVAL = 500; //  毫秒采集一次
 
         function updateMaxValues() {
           document.getElementById('maxPower').textContent = powers.length ? Math.max(...powers).toFixed(5) : '--';
@@ -484,10 +474,10 @@
 
         device.oninputreport = (event) => {
           let now = Date.now();
-          let elapsed = Math.round((now - startTime) / INTERVAL);
-          if (times.length === 0 || elapsed > times.length - 1) {
-            times.push(elapsed);
-
+          var elapsed= now - lastTime;
+          if (elapsed >= INTERVAL) {
+            lastTime = now;
+            times.push(Math.round((now - startTime)/ 1000));
             let array = new Uint8Array(event.data.buffer);
             let hexstr = "";
             for (const data of array) {
