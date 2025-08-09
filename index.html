@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HID Passthrough Tool</title>
+  <title>数据显示</title>
   <style>
     body {
       margin: 0;
@@ -169,7 +169,7 @@
 </head>
 
 <body>
-  <div class="navbar">HID 数据可视化工具</div>
+  <div class="navbar">数据可视化工具</div>
   <div class="container">
     <div class="side-card">
       <button id="btnOpen" class="btn">连接设备</button>
@@ -235,10 +235,9 @@
     let powerBarChart = echarts.init(powerBarChartDom);
 
     // 统一颜色
-    const colorVoltage = '#6cb4ff';
-    const colorCurrent = '#91CC75';
-    // 功率改为红色
-    const colorPower = '#ff4d4f';
+    const colorVoltage = '#4F8FEA';   // 柔和蓝
+    const colorCurrent = '#43C59E';   // 清新绿
+    const colorPower = '#FFA940';   // 活力橙
 
     // 功率分布统计桶
     let powerBuckets = {};
@@ -270,7 +269,7 @@
         keys = Object.keys(powerBuckets).sort((a, b) => parseFloat(a.split('~')[0]) - parseFloat(b.split('~')[0]));
         times = keys.map(k => powerBuckets[k]);
         name = '功率';
-        color = colorPower; // 红色
+        color = colorPower;
       } else if (type === 'current') {
         keys = Object.keys(currentBuckets).sort((a, b) => parseFloat(a.split('~')[0]) - parseFloat(b.split('~')[0]));
         times = keys.map(k => currentBuckets[k]);
@@ -284,21 +283,21 @@
       }
 
       powerBarChart.setOption({
-        backgroundColor: '#181c27',
+        backgroundColor: '#f5f7fa',
         title: { text: `${name}分布统计（累计时间）`, left: 'center', textStyle: { color: colorVoltage, fontWeight: 500, fontSize: 18 } },
         tooltip: { trigger: 'axis' },
         xAxis: {
           type: 'category',
           data: keys,
           name: '区间',
-          axisLabel: { rotate: 45, color: '#e3e8ee' },
-          axisLine: { lineStyle: { color: '#313a4c' } }
+          axisLabel: { rotate: 45, color: '#232d3c' },
+          axisLine: { lineStyle: { color: '#dbeafe' } }
         },
         yAxis: {
           type: 'value',
           name: '累计时间（秒）',
-          axisLabel: { color: '#e3e8ee' },
-          axisLine: { lineStyle: { color: '#313a4c' } }
+          axisLabel: { color: '#232d3c' },
+          axisLine: { lineStyle: { color: '#dbeafe' } }
         },
         series: [{
           name: name,
@@ -319,61 +318,48 @@
     let startTime = null;
 
     let chartOption = {
-      backgroundColor: '#181c27',
+      backgroundColor: '#f5f7fa',
       title: {
         text: '电压/电流/功率 实时曲线',
         left: 'center',
-        textStyle: { color: '#6cb4ff', fontWeight: 500, fontSize: 18 }
+        textStyle: { color: colorVoltage, fontWeight: 500, fontSize: 18 }
       },
       tooltip: {
         trigger: 'axis'
       },
       legend: {
         data: ['电压', '电流', '功率'],
-        textStyle: { color: '#e3e8ee', fontSize: 15 },
+        textStyle: { color: '#232d3c', fontSize: 15 },
         bottom: 100,
-        orient:'vertical',
+        orient: 'vertical',
         right: 20,
         itemWidth: 20,
         itemHeight: 10,
         top: 'center',
-        
       },
       xAxis: {
         type: 'category',
         data: times,
         name: '时间',
         axisLabel: {
-          color: '#e3e8ee',
-          formatter: function (value, index) {
-            const total = times.length;
-            if (total === 0) return '';
-            // 固定5个等分位置
-            const positions = [
-              0,
-              Math.floor(total / 4),
-              Math.floor(total / 2),
-              Math.floor(total * 3 / 4),
-              total - 1
-            ];
-            if (positions.includes(index)) {
-              let sec = value;
-              if (typeof value === 'string' && /^\d+$/.test(value)) sec = Number(value);
-              if (typeof value === 'number') sec = value;
+          color: '#232d3c',
+          formatter: function (value) {
+            if (typeof value === 'number' || /^\d+$/.test(value)) {
+              const sec = Number(value);
               const h = Math.floor(sec / 3600);
               const m = Math.floor((sec % 3600) / 60);
               const s = sec % 60;
               return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
             }
-            return '';
+            return value;
           }
         },
-        axisLine: { lineStyle: { color: '#313a4c' } }
+        axisLine: { lineStyle: { color: '#dbeafe' } }
       },
       yAxis: {
         type: 'value',
-        axisLabel: { color: '#e3e8ee' },
-        axisLine: { lineStyle: { color: '#313a4c' } }
+        axisLabel: { color: '#232d3c' },
+        axisLine: { lineStyle: { color: '#dbeafe' } }
       },
       series: [
         {
@@ -395,7 +381,7 @@
           type: 'line',
           data: powers,
           showSymbol: false,
-          lineStyle: { color: colorPower, width: 3 } // 红色
+          lineStyle: { color: colorPower, width: 3 }
         }
       ],
       dataZoom: [
@@ -405,10 +391,6 @@
           xAxisIndex: 0,
           start: 0,
           end: 100,
-          backgroundColor: '#232d3c',
-          fillerColor: '#2563eb',
-          borderColor: '#313a4c',
-          textStyle: { color: '#e3e8ee' }
         },
         {
           type: 'inside',
@@ -438,59 +420,59 @@
           }
         }
 
-        var condition = 0;
         startTime = Date.now();
         device.oninputreport = (event) => {
-          condition++;
-          if (condition < 10) {
-            return;
-          }
-          condition = 0;
-
-          let array = new Uint8Array(event.data.buffer);
-          let hexstr = "";
-          for (const data of array) {
-            hexstr += (Array(2).join(0) + data.toString(16).toUpperCase()).slice(-2) + " ";
-          }
-
-          var xx = parsePowerMeterHID(hexstr);
-
-          // 电压: ${xx.voltage} 
-          // 电流: ${xx.current} 
-          // 功率: ${xx.powerConsistency}
-          // ===================
-          // D+电压: ${xx.dVoltage1} 
-          // D-电压: ${xx.dVoltage2} 
-          // ====================
-          // 积累数据组: ${xx.type === 0 ? '1' : '2'}
-          // Ah积累: ${xx.Ah} 
-          // Wh积累: ${xx.Wh} 
-          // 时间: ${xx.time} 
-
-          // 优化数值显示
-          document.getElementById('summaryVoltage').textContent = xx.voltage;
-          document.getElementById('summaryCurrent').textContent = xx.current;
-          document.getElementById('summaryPower').textContent = xx.powerConsistency;
-          document.getElementById('summaryTime').textContent = xx.time;
-          document.getElementById('summaryAh').textContent = xx.Ah;
-          document.getElementById('summaryWh').textContent = xx.Wh;
-
-          document.getElementById('dVoltage1').textContent = xx.dVoltage1;
-          document.getElementById('dVoltage2').textContent = xx.dVoltage2;
-          document.getElementById('type').textContent = xx.type === 0 ? '1' : '2';
-
-    
 
           // 采集数据，每秒一次
           let now = Date.now();
           let elapsed = Math.round((now - startTime) / 1000);
           if (times.length === 0 || elapsed > times.length - 1) {
             times.push(elapsed);
+
+
+            let array = new Uint8Array(event.data.buffer);
+            let hexstr = "";
+            for (const data of array) {
+              hexstr += (Array(2).join(0) + data.toString(16).toUpperCase()).slice(-2) + " ";
+            }
+            var xx = parsePowerMeterHID(hexstr);
+            // 电压: ${xx.voltage} 
+            // 电流: ${xx.current} 
+            // 功率: ${xx.powerConsistency}
+            // ===================
+            // D+电压: ${xx.dVoltage1} 
+            // D-电压: ${xx.dVoltage2} 
+            // ====================
+            // 积累数据组: ${xx.type === 0 ? '1' : '2'}
+            // Ah积累: ${xx.Ah} 
+            // Wh积累: ${xx.Wh} 
+            // 时间: ${xx.time} 
+
+            // 优化数值显示
+            document.getElementById('summaryVoltage').textContent = xx.voltage;
+            document.getElementById('summaryCurrent').textContent = xx.current;
+            document.getElementById('summaryPower').textContent = xx.powerConsistency;
+            document.getElementById('summaryTime').textContent = xx.time;
+            document.getElementById('summaryAh').textContent = xx.Ah;
+            document.getElementById('summaryWh').textContent = xx.Wh;
+
+            document.getElementById('dVoltage1').textContent = xx.dVoltage1;
+            document.getElementById('dVoltage2').textContent = xx.dVoltage2;
+            document.getElementById('type').textContent = xx.type === 0 ? '1' : '2';
+
+
             voltages.push(Number(xx.voltage));
             currents.push(Number(xx.current));
             powers.push(Number(xx.powerConsistency));
             // 更新折线图
             myChart.setOption({
+              axisLabel: {
+                interval: function (index, value) {
+                  const total = times.length;
+                  if (total <= 5) return true;
+                  return index % Math.ceil(total / 5) === 0;
+                }
+              },
               xAxis: { data: times },
               series: [
                 { data: voltages },
