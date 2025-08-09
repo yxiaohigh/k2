@@ -6,52 +6,227 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HID Passthrough Tool</title>
   <style>
-    .container {
+    body {
+      margin: 0;
+      background: #e8edf5;
+      font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Arial', sans-serif;
+      color: #232d3c;
+    }
+
+    .navbar {
       width: 100%;
-      height: 100%;
+      height: 56px;
+      background: #2563eb;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding-left: 32px;
+      font-size: 22px;
+      letter-spacing: 2px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .container {
+      max-width: 1800px;
+      margin: 32px auto;
+      display: flex;
+      flex-direction: row;
+      gap: 32px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .side-card {
+      background: #f5f7fa;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(37, 99, 235, 0.10);
+      padding: 32px 16px;
+      min-width: 180px;
+      max-width: 220px;
+      height: 700px;
       display: flex;
       flex-direction: column;
+      gap: 24px;
       align-items: center;
       justify-content: center;
     }
 
+    .main-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(37, 99, 235, 0.10);
+      padding: 32px 40px;
+      flex: 1;
+      min-width: 1100px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+
+
+    .btn {
+      background: linear-gradient(90deg, #2563eb 0%, #1e40af 100%);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 12px 36px;
+      font-size: 18px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.18);
+      transition: background 0.2s;
+      margin-bottom: 10px;
+    }
+
+    .btn:hover {
+      background: linear-gradient(90deg, #1e40af 0%, #2563eb 100%);
+    }
+
+    .select {
+      padding: 10px 24px;
+      border-radius: 6px;
+      border: 1px solid #dbeafe;
+      background: #f5f7fa;
+      font-size: 16px;
+      color: #232d3c;
+      outline: none;
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+
+    .chart-card {
+      background: #f5f7fa;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(37, 99, 235, 0.07);
+      padding: 22px 22px 10px 22px;
+      margin-bottom: 18px;
+      border: 1px solid #dbeafe;
+    }
+
+    .chart-title {
+      font-size: 20px;
+      color: #2563eb;
+      margin-bottom: 12px;
+      font-weight: 500;
+      letter-spacing: 1px;
+    }
+
+    .value-summary {
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #dbeafe;
+      padding: 18px 10px;
+      margin-bottom: 10px;
+      width: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .value-row {
+      display: flex;
+      gap: 18px;
+      font-size: 17px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .value-label {
+      color: #2563eb;
+      font-weight: 500;
+      min-width: 70px;
+      text-align: right;
+    }
+
+    .value-data {
+      color: #232d3c;
+      font-family: 'Consolas', 'Menlo', 'Monaco', 'monospace';
+      font-size: 17px;
+      min-width: 50px;
+      text-align: left;
+    }
+
     .showshow {
-      margin-top: 20px;
-      width: 220px;
-      height: 253px;
+      width: 100%;
+      min-height: 120px;
+      border-radius: 8px;
+      border: 1px solid #dbeafe;
+      background: #f5f7fa;
+      font-size: 15px;
+      padding: 10px;
+      color: #232d3c;
+      resize: none;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+      font-family: 'Consolas', 'Menlo', 'Monaco', 'monospace';
+      letter-spacing: 1px;
     }
   </style>
-  <script>
-    if ("hid" in navigator) {
-      // 浏览器支持hid
-    } else {
-      alert("Your browser is not support Web HID API.");
-    }
-  </script>
   <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
 </head>
 
 <body>
+  <div class="navbar">HID 数据可视化工具</div>
   <div class="container">
-    <button id="btnOpen">open</button>
-    <textarea id="spanInput" class="showshow" readonly></textarea>
-    <div id="main" style="width: 90%; height: 600px;"></div>
-    <div>
-      <label for="barType">选择统计类型:</label>
-      <select id="barType">
-        <option value="power">功率</option>
-        <option value="current">电流</option>
-        <option value="voltage">电压</option>
-      </select>
+    <div class="side-card">
+      <button id="btnOpen" class="btn">连接设备</button>
+      <div class="value-summary" id="valueSummary">
+        <div class="value-row">
+          <span class="value-label">电压:</span>
+          <span class="value-data" id="summaryVoltage">--</span>
+          <span class="value-label">电流:</span>
+          <span class="value-data" id="summaryCurrent">--</span>
+        </div>
+        <div class="value-row">
+          <span class="value-label">功率:</span>
+          <span class="value-data" id="summaryPower">--</span>
+          <span class="value-label">累计时间:</span>
+          <span class="value-data" id="summaryTime">--</span>
+        </div>
+        <div class="value-row">
+          <span class="value-label">D+:</span>
+          <span class="value-data" id="dVoltage1">--</span>
+          <span class="value-label">D-:</span>
+          <span class="value-data" id="dVoltage2">--</span>
+        </div>
+        <div class="value-row">
+          <span class="value-label">Ah积累:</span>
+          <span class="value-data" id="summaryAh">--</span>
+          <span class="value-label">Wh积累:</span>
+          <span class="value-data" id="summaryWh">--</span>
+        </div>
+        <div class="value-row">
+          <span class="value-label">机器记录组别:</span>
+          <span class="value-data" id="type">--</span>
+        </div>
+      </div>
+      <textarea id="spanInput" class="showshow" readonly></textarea>
     </div>
-    <div id="powerBarChart" style="width: 50%; height: 400px; margin-top: 30px;"></div>
+    <div class="main-card">
+      <div class="chart-card">
+        <div class="chart-title">实时曲线</div>
+        <div id="main" style="width: 100%; height: 650px;"></div>
+      </div>
+      <div class="chart-card">
+        <label for="barType" style="font-size:16px;color:#232d3c;">统计类型:</label>
+        <select id="barType" class="select">
+          <option value="power">功率</option>
+          <option value="current">电流</option>
+          <option value="voltage">电压</option>
+        </select>
+        <div class="chart-title">分布统计柱状图</div>
+        <div id="powerBarChart" style="width: 100%; height: 400px;"></div>
+      </div>
+    </div>
   </div>
   <script>
     const btnOpen = document.querySelector("#btnOpen");
-
-    let device; // 需要连接或已连接的设备
-    let inputDataLength; // 发送数据包长度
-    let outputDataLength; // 发送数据包长度
+    let device;
+    let inputDataLength;
+    let outputDataLength;
 
     let chartDom = document.getElementById('main');
     let myChart = echarts.init(chartDom);
@@ -59,12 +234,16 @@
     let powerBarChartDom = document.getElementById('powerBarChart');
     let powerBarChart = echarts.init(powerBarChartDom);
 
-    // 功率分布统计桶
-    let powerBuckets = {}; // { 区间: 累计秒数 }
-    let bucketSize = 1; // 功率分组区间大小（可调整）
+    // 统一颜色
+    const colorVoltage = '#6cb4ff';
+    const colorCurrent = '#91CC75';
+    // 功率改为红色
+    const colorPower = '#ff4d4f';
 
+    // 功率分布统计桶
+    let powerBuckets = {};
+    let bucketSize = 1;
     function getPowerBucket(power) {
-      // 例如功率区间为 0~1, 1~2, 2~3 ...
       return `${Math.floor(power / bucketSize) * bucketSize}~${(Math.floor(power / bucketSize) + 1) * bucketSize}`;
     }
 
@@ -86,114 +265,162 @@
 
     function updatePowerBarChart() {
       let type = barTypeSelect.value;
-      let keys, times, title, color;
+      let keys, times, name, color;
       if (type === 'power') {
         keys = Object.keys(powerBuckets).sort((a, b) => parseFloat(a.split('~')[0]) - parseFloat(b.split('~')[0]));
         times = keys.map(k => powerBuckets[k]);
-        title = '功率分布统计（累计时间）';
-        color = '#5470C6';
+        name = '功率';
+        color = colorPower; // 红色
       } else if (type === 'current') {
         keys = Object.keys(currentBuckets).sort((a, b) => parseFloat(a.split('~')[0]) - parseFloat(b.split('~')[0]));
         times = keys.map(k => currentBuckets[k]);
-        title = '电流分布统计（累计时间）';
-        color = '#91CC75';
+        name = '电流';
+        color = colorCurrent;
       } else {
         keys = Object.keys(voltageBuckets).sort((a, b) => parseFloat(a.split('~')[0]) - parseFloat(b.split('~')[0]));
         times = keys.map(k => voltageBuckets[k]);
-        title = '电压分布统计（累计时间）';
-        color = '#FAC858';
+        name = '电压';
+        color = colorVoltage;
       }
 
       powerBarChart.setOption({
-        title: { text: title },
+        backgroundColor: '#181c27',
+        title: { text: `${name}分布统计（累计时间）`, left: 'center', textStyle: { color: colorVoltage, fontWeight: 500, fontSize: 18 } },
         tooltip: { trigger: 'axis' },
         xAxis: {
           type: 'category',
           data: keys,
           name: '区间',
-          axisLabel: { rotate: 45 }
+          axisLabel: { rotate: 45, color: '#e3e8ee' },
+          axisLine: { lineStyle: { color: '#313a4c' } }
         },
         yAxis: {
           type: 'value',
-          name: '累计时间（秒）'
+          name: '累计时间（秒）',
+          axisLabel: { color: '#e3e8ee' },
+          axisLine: { lineStyle: { color: '#313a4c' } }
         },
         series: [{
-          name: title,
+          name: name,
           type: 'bar',
           data: times,
-          barWidth: 20,
+          barWidth: 24,
           itemStyle: { color }
         }]
       });
     }
 
-    // 切换统计类型时刷新柱状图
     barTypeSelect.onchange = updatePowerBarChart;
 
-    let times = []; // x轴时间
-    let voltages = []; // 电压
-    let currents = []; // 电流
-    let powers = []; // 功率
-
+    let times = [];
+    let voltages = [];
+    let currents = [];
+    let powers = [];
     let startTime = null;
 
     let chartOption = {
+      backgroundColor: '#181c27',
       title: {
-        text: '电压/电流/功率 实时曲线'
+        text: '电压/电流/功率 实时曲线',
+        left: 'center',
+        textStyle: { color: '#6cb4ff', fontWeight: 500, fontSize: 18 }
       },
       tooltip: {
         trigger: 'axis'
       },
       legend: {
-        data: ['电压', '电流', '功率']
+        data: ['电压', '电流', '功率'],
+        textStyle: { color: '#e3e8ee', fontSize: 15 },
+        bottom: 100,
+        orient:'vertical',
+        right: 20,
+        itemWidth: 20,
+        itemHeight: 10,
+        top: 'center',
+        
       },
       xAxis: {
         type: 'category',
         data: times,
         name: '时间',
         axisLabel: {
-          interval: (index) => index % Math.ceil(data.length / 10) === 0,
-          formatter: function (value) {
-            if (typeof value === 'number' || /^\d+$/.test(value)) {
-              const sec = Number(value);
+          color: '#e3e8ee',
+          formatter: function (value, index) {
+            const total = times.length;
+            if (total === 0) return '';
+            // 固定5个等分位置
+            const positions = [
+              0,
+              Math.floor(total / 4),
+              Math.floor(total / 2),
+              Math.floor(total * 3 / 4),
+              total - 1
+            ];
+            if (positions.includes(index)) {
+              let sec = value;
+              if (typeof value === 'string' && /^\d+$/.test(value)) sec = Number(value);
+              if (typeof value === 'number') sec = value;
               const h = Math.floor(sec / 3600);
               const m = Math.floor((sec % 3600) / 60);
               const s = sec % 60;
               return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
             }
-            return value;
+            return '';
           }
-        }
+        },
+        axisLine: { lineStyle: { color: '#313a4c' } }
       },
       yAxis: {
         type: 'value',
-        name: '数值'
+        axisLabel: { color: '#e3e8ee' },
+        axisLine: { lineStyle: { color: '#313a4c' } }
       },
       series: [
         {
           name: '电压',
           type: 'line',
           data: voltages,
-          showSymbol: false // 不显示折线上的点
+          showSymbol: false,
+          lineStyle: { color: colorVoltage, width: 3 }
         },
         {
           name: '电流',
           type: 'line',
           data: currents,
-          showSymbol: false
+          showSymbol: false,
+          lineStyle: { color: colorCurrent, width: 3 }
         },
         {
           name: '功率',
           type: 'line',
           data: powers,
-          showSymbol: false
+          showSymbol: false,
+          lineStyle: { color: colorPower, width: 3 } // 红色
+        }
+      ],
+      dataZoom: [
+        {
+          type: 'slider',
+          show: true,
+          xAxisIndex: 0,
+          start: 0,
+          end: 100,
+          backgroundColor: '#232d3c',
+          fillerColor: '#2563eb',
+          borderColor: '#313a4c',
+          textStyle: { color: '#e3e8ee' }
+        },
+        {
+          type: 'inside',
+          xAxisIndex: 0,
+          start: 0,
+          end: 100
         }
       ]
     };
 
     myChart.setOption(chartOption);
 
-    // 打开设备相关操作
     btnOpen.onclick = async () => {
       try {
         const devices = await navigator.hid.requestDevice({ filters: [] });
@@ -227,19 +454,32 @@
           }
 
           var xx = parsePowerMeterHID(hexstr);
-          spanInput.value = `
-          电压: ${xx.voltage} 
-          电流: ${xx.current} 
-          功率: ${xx.powerConsistency}
-          ===================
-          D+电压: ${xx.dVoltage1} 
-          D-电压: ${xx.dVoltage2} 
-          =====================
-          积累数据组: ${xx.type === 0 ? '1' : '2'}
-          Ah积累: ${xx.Ah} 
-          Wh积累: ${xx.Wh} 
-          时间: ${xx.time} 
-          `;
+
+          // 电压: ${xx.voltage} 
+          // 电流: ${xx.current} 
+          // 功率: ${xx.powerConsistency}
+          // ===================
+          // D+电压: ${xx.dVoltage1} 
+          // D-电压: ${xx.dVoltage2} 
+          // ====================
+          // 积累数据组: ${xx.type === 0 ? '1' : '2'}
+          // Ah积累: ${xx.Ah} 
+          // Wh积累: ${xx.Wh} 
+          // 时间: ${xx.time} 
+
+          // 优化数值显示
+          document.getElementById('summaryVoltage').textContent = xx.voltage;
+          document.getElementById('summaryCurrent').textContent = xx.current;
+          document.getElementById('summaryPower').textContent = xx.powerConsistency;
+          document.getElementById('summaryTime').textContent = xx.time;
+          document.getElementById('summaryAh').textContent = xx.Ah;
+          document.getElementById('summaryWh').textContent = xx.Wh;
+
+          document.getElementById('dVoltage1').textContent = xx.dVoltage1;
+          document.getElementById('dVoltage2').textContent = xx.dVoltage2;
+          document.getElementById('type').textContent = xx.type === 0 ? '1' : '2';
+
+    
 
           // 采集数据，每秒一次
           let now = Date.now();
@@ -251,11 +491,11 @@
             powers.push(Number(xx.powerConsistency));
             // 更新折线图
             myChart.setOption({
-              xAxis: { data: times, axisLabel: { interval: 4 } },
+              xAxis: { data: times },
               series: [
-                { data: voltages, showSymbol: false },
-                { data: currents, showSymbol: false },
-                { data: powers, showSymbol: false }
+                { data: voltages },
+                { data: currents },
+                { data: powers }
               ]
             });
 
@@ -281,7 +521,6 @@
         console.log(error);
       }
     };
-
 
     function parsePowerMeterHID(hexString) {
       // 移除所有非十六进制字符（包括行首地址）
@@ -348,40 +587,17 @@
 
       }
 
-
-
       // 解析关键字段
       const result = {
-        // 帧头标识
-        // header: `0x${bytes[0].toString(16).padStart(2, '0')}${bytes[1].toString(16).padStart(2, '0')}`,
-
-        // D+电压 (30-33字节) 
         dVoltage1: parseFloatLE(30).toFixed(5),
-
-        // D-电压 (34-37字节)  
         dVoltage2: parseFloatLE(34).toFixed(5),
-
-        // Ah积累(14-17字节)  
         Ah: parseFloatLE(14).toFixed(5),
-
-        // Wh积累(18-21字节)  
         Wh: parseFloatLE(18).toFixed(5),
-
-        // 电压 (46-49字节)   
         voltage: parseFloatLE(46).toFixed(5),
-
-        // 瞬时电流 (50-53字节小端浮点)  
         current: parseFloatLE(50).toFixed(5),
-        // 累积时间 (22-23字节小端浮点)  
         time: secondsToHMS(parseUInt16LE(22)),
-
-        type: bytes[54], // 设备类型
-        //  type: bytes[54] === 0 ? '1' : '2', // 设备类型
-
-        // 原始十六进制字符串
-        // rawHex: cleanHex
+        type: bytes[54]
       };
-
 
       const voltage = parseFloatLE(46);
       const current = parseFloatLE(50);
