@@ -131,7 +131,8 @@
       font-size: 17px;
       align-items: center;
       flex-wrap: wrap;
-      justify-content: center;
+      justify-content: space-between;
+
     }
 
     .value-label {
@@ -173,6 +174,7 @@
   <div class="container">
     <div class="side-card">
       <button id="btnOpen" class="btn">连接设备</button>
+      <button id="closeBtn" class="btn">断开设备 </button>
       <div class="value-summary" id="valueSummary">
         <div class="value-row">
           <span class="value-label">电压:</span>
@@ -183,7 +185,7 @@
         <div class="value-row">
           <span class="value-label">功率:</span>
           <span class="value-data" id="summaryPower">--</span>
-          <span class="value-label">累计时间:</span>
+          <span class="value-label">累计:</span>
           <span class="value-data" id="summaryTime">--</span>
         </div>
         <div class="value-row">
@@ -199,11 +201,27 @@
           <span class="value-data" id="summaryWh">--</span>
         </div>
         <div class="value-row">
-          <span class="value-label">机器记录组别:</span>
+          <span class="value-label">记录组别:</span>
           <span class="value-data" id="type">--</span>
+          <span class="value-label"></span>
+          <span class="value-data"></span>
+        </div>
+
+      </div>
+      <div class="value-summary" id="maxSummary">
+        <div class="value-row">
+          <span class="value-label">最大功率:</span>
+          <span class="value-data" id="maxPower">--</span>
+        </div>
+        <div class="value-row">
+          <span class="value-label">最大电流:</span>
+          <span class="value-data" id="maxCurrent">--</span>
+        </div>
+        <div class="value-row">
+          <span class="value-label">最大电压:</span>
+          <span class="value-data" id="maxVoltage">--</span>
         </div>
       </div>
-      <textarea id="spanInput" class="showshow" readonly></textarea>
     </div>
     <div class="main-card">
       <div class="chart-card">
@@ -224,6 +242,7 @@
   </div>
   <script>
     const btnOpen = document.querySelector("#btnOpen");
+    const closeBtn = document.querySelector("#closeBtn");
     let device;
     let inputDataLength;
     let outputDataLength;
@@ -284,8 +303,17 @@
 
       powerBarChart.setOption({
         backgroundColor: '#f5f7fa',
-        title: { text: `${name}分布统计（累计时间）`, left: 'center', textStyle: { color: colorVoltage, fontWeight: 500, fontSize: 18 } },
-        tooltip: { trigger: 'axis' },
+        title: { text: `${name}分布（根据采集数统计）`, left: 'center', textStyle: { color: colorVoltage, fontWeight: 500, fontSize: 18 } },
+        tooltip: {
+          trigger: 'axis',
+          formatter: function (params) {
+            let tooltipContent = `<div style="color: #232d3c; font-size: 14px;">区间 ${params[0].name} </div>`;
+            params.forEach(param => {
+              tooltipContent += `<div> ${param.seriesName}区间内采集到:${param.data}次</div>`;
+            });
+            return tooltipContent;
+          }
+        },
         xAxis: {
           type: 'category',
           data: keys,
@@ -295,7 +323,7 @@
         },
         yAxis: {
           type: 'value',
-          name: '累计时间（秒）',
+          name: '累计',
           axisLabel: { color: '#232d3c' },
           axisLine: { lineStyle: { color: '#dbeafe' } }
         },
@@ -325,7 +353,15 @@
         textStyle: { color: colorVoltage, fontWeight: 500, fontSize: 18 }
       },
       tooltip: {
-        trigger: 'axis'
+        trigger: 'axis',
+        formatter: function (params) {
+          var time = formatHMS(params[0].name)
+          let tooltipContent = `<div style="color: #232d3c; font-size: 14px;">时间: ${time}</div>`;
+          params.forEach(param => {
+            tooltipContent += `<div> ${param.seriesName}: ${param.data.toFixed(5)}</div>`;
+          });
+          return tooltipContent;
+        }
       },
       legend: {
         data: ['电压', '电流', '功率'],
@@ -403,6 +439,23 @@
 
     myChart.setOption(chartOption);
 
+    // 辅助函数：秒转时分秒字符串
+    function formatHMS(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      return [
+        h > 0 ? String(h).padStart(2, '0') : '00',
+        String(m).padStart(2, '0'),
+        String(s).padStart(2, '0')
+      ].join(':');
+    }
+
+    closeBtn.onclick = async () => {
+      if (device && device.opened) {
+        await device.close();
+      }
+    }
     btnOpen.onclick = async () => {
       try {
         const devices = await navigator.hid.requestDevice({ filters: [] });
@@ -411,24 +464,29 @@
         }
         device = devices[0];
         if (!device.opened) {
+          times = [];
+          voltages = [];
+          currents = [];
+          powers = [];
           await device.open();
-          if (device.collections[0].inputReports[0].items[0].isArray && device.collections[0].inputReports[0].items[0].reportSize === 8) {
-            inputDataLength = device.collections[0].inputReports[0].items[0].reportCount ?? 0;
-          }
-          if (device.collections[0].outputReports[0].items[0].isArray && device.collections[0].outputReports[0].items[0].reportSize === 8) {
-            outputDataLength = device.collections[0].outputReports[0].items[0].reportCount ?? 0;
-          }
         }
 
         startTime = Date.now();
-        device.oninputreport = (event) => {
+        let updateCount = 0; // 刷新计数器
+        const UPDATE_INTERVAL = 5; // 每 次采集刷新一次
+        const INTERVAL = 200; // 每 次采集刷新一次
 
-          // 采集数据，每秒一次
+        function updateMaxValues() {
+          document.getElementById('maxPower').textContent = powers.length ? Math.max(...powers).toFixed(5) : '--';
+          document.getElementById('maxCurrent').textContent = currents.length ? Math.max(...currents).toFixed(5) : '--';
+          document.getElementById('maxVoltage').textContent = voltages.length ? Math.max(...voltages).toFixed(5) : '--';
+        }
+
+        device.oninputreport = (event) => {
           let now = Date.now();
-          let elapsed = Math.round((now - startTime) / 1000);
+          let elapsed = Math.round((now - startTime) / INTERVAL);
           if (times.length === 0 || elapsed > times.length - 1) {
             times.push(elapsed);
-
 
             let array = new Uint8Array(event.data.buffer);
             let hexstr = "";
@@ -436,17 +494,6 @@
               hexstr += (Array(2).join(0) + data.toString(16).toUpperCase()).slice(-2) + " ";
             }
             var xx = parsePowerMeterHID(hexstr);
-            // 电压: ${xx.voltage} 
-            // 电流: ${xx.current} 
-            // 功率: ${xx.powerConsistency}
-            // ===================
-            // D+电压: ${xx.dVoltage1} 
-            // D-电压: ${xx.dVoltage2} 
-            // ====================
-            // 积累数据组: ${xx.type === 0 ? '1' : '2'}
-            // Ah积累: ${xx.Ah} 
-            // Wh积累: ${xx.Wh} 
-            // 时间: ${xx.time} 
 
             // 优化数值显示
             document.getElementById('summaryVoltage').textContent = xx.voltage;
@@ -455,31 +502,13 @@
             document.getElementById('summaryTime').textContent = xx.time;
             document.getElementById('summaryAh').textContent = xx.Ah;
             document.getElementById('summaryWh').textContent = xx.Wh;
-
             document.getElementById('dVoltage1').textContent = xx.dVoltage1;
             document.getElementById('dVoltage2').textContent = xx.dVoltage2;
             document.getElementById('type').textContent = xx.type === 0 ? '1' : '2';
 
-
             voltages.push(Number(xx.voltage));
             currents.push(Number(xx.current));
             powers.push(Number(xx.powerConsistency));
-            // 更新折线图
-            myChart.setOption({
-              axisLabel: {
-                interval: function (index, value) {
-                  const total = times.length;
-                  if (total <= 5) return true;
-                  return index % Math.ceil(total / 5) === 0;
-                }
-              },
-              xAxis: { data: times },
-              series: [
-                { data: voltages },
-                { data: currents },
-                { data: powers }
-              ]
-            });
 
             // 功率分布统计
             const powerBucket = getPowerBucket(Number(xx.powerConsistency));
@@ -496,7 +525,20 @@
             if (!voltageBuckets[voltageBucket]) voltageBuckets[voltageBucket] = 0;
             voltageBuckets[voltageBucket] += 1;
 
-            updatePowerBarChart();
+            updateCount++;
+            if (updateCount % UPDATE_INTERVAL === 0) {
+              // 降低刷新频率
+              myChart.setOption({
+                xAxis: { data: times },
+                series: [
+                  { data: voltages },
+                  { data: currents },
+                  { data: powers }
+                ]
+              });
+              updatePowerBarChart();
+            }
+            updateMaxValues();
           }
         };
       } catch (error) {
@@ -539,17 +581,7 @@
         return (bytes[offset] << 8) | bytes[offset + 1];
       };
 
-      // 辅助函数：秒转时分秒字符串
-      function formatHMS(seconds) {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        return [
-          h > 0 ? String(h).padStart(2, '0') : '00',
-          String(m).padStart(2, '0'),
-          String(s).padStart(2, '0')
-        ].join(':');
-      }
+
 
       const secondsToHMS = (seconds) => {
         // 确保输入是数字
@@ -561,8 +593,8 @@
         const secs = Math.floor(totalSeconds % 60);
 
         const parts = [];
-        if (hours) parts.push(`${hours}小时`);
-        if (minutes) parts.push(`${minutes}分钟`);
+        if (hours) parts.push(`${hours}时`);
+        if (minutes) parts.push(`${minutes}分`);
         if (secs || parts.length === 0) parts.push(`${secs}秒`);
 
         return parts.join('');
