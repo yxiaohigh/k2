@@ -36,6 +36,7 @@
     <button id="btnOpen">open</button>
     <textarea id="spanInput" class="showshow" readonly></textarea>
     <div id="main" style="width: 90%; height: 600px;"></div>
+    <div id="powerBarChart" style="width: 50%; height: 400px; margin-top: 30px;"></div>
   </div>
   <script>
     const btnOpen = document.querySelector("#btnOpen");
@@ -46,6 +47,45 @@
 
     let chartDom = document.getElementById('main');
     let myChart = echarts.init(chartDom);
+
+    let powerBarChartDom = document.getElementById('powerBarChart');
+    let powerBarChart = echarts.init(powerBarChartDom);
+
+    // 功率分布统计桶
+    let powerBuckets = {}; // { 区间: 累计秒数 }
+    let bucketSize = 1; // 功率分组区间大小（可调整）
+
+    function getPowerBucket(power) {
+      // 例如功率区间为 0~1, 1~2, 2~3 ...
+      return `${Math.floor(power / bucketSize) * bucketSize}~${(Math.floor(power / bucketSize) + 1) * bucketSize}`;
+    }
+
+    function updatePowerBarChart() {
+      const bucketKeys = Object.keys(powerBuckets).sort((a, b) => {
+        // 按区间起始值排序
+        return parseFloat(a.split('~')[0]) - parseFloat(b.split('~')[0]);
+      });
+      const bucketTimes = bucketKeys.map(k => powerBuckets[k]);
+      powerBarChart.setOption({
+        title: { text: '功率分布统计（累计时间）' },
+        tooltip: { trigger: 'axis' },
+        xAxis: {
+          type: 'category',
+          data: bucketKeys,
+          name: '功率区间'
+        },
+        yAxis: {
+          type: 'value',
+          name: '累计时间（秒）'
+        },
+        series: [{
+          name: '累计时间',
+          type: 'bar',
+          data: bucketTimes,
+          barWidth: 20
+        }]
+      });
+    }
 
     let times = []; // x轴时间
     let voltages = []; // 电压
@@ -165,11 +205,11 @@
           let now = Date.now();
           let elapsed = Math.round((now - startTime) / 1000);
           if (times.length === 0 || elapsed > times.length - 1) {
-            times.push(elapsed); // 转换为时:分:秒格式
+            times.push(elapsed);
             voltages.push(Number(xx.voltage));
             currents.push(Number(xx.current));
             powers.push(Number(xx.powerConsistency));
-            // 更新图表
+            // 更新折线图
             myChart.setOption({
               xAxis: { data: times, axisLabel: { interval: 4 } },
               series: [
@@ -178,6 +218,12 @@
                 { data: powers, showSymbol: false }
               ]
             });
+
+            // 功率分布统计
+            const bucket = getPowerBucket(Number(xx.powerConsistency));
+            if (!powerBuckets[bucket]) powerBuckets[bucket] = 0;
+            powerBuckets[bucket] += 1; // 每秒采集一次，累计秒数
+            updatePowerBarChart();
           }
         };
       } catch (error) {
