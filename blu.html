@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>心率监测器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        .heart-rate {
+            font-size: 48px;
+            color: #e74c3c;
+            margin: 20px;
+        }
+        .status {
+            font-size: 18px;
+            margin: 10px;
+        }
+        button {
+            font-size: 18px;
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>运动手表心率监测</h1>
+    <div class="heart-rate" id="heartRate">--</div>
+    <div class="status" id="status">未连接</div>
+    <button id="connectButton">连接心率设备</button>
+    <button id="disconnectButton" disabled>断开连接</button>
+
+    <script>
+        
+        let heartRateCharacteristic;
+        let bluetoothDevice;
+        
+        document.getElementById('connectButton').addEventListener('click', connectDevice);
+        document.getElementById('disconnectButton').addEventListener('click', disconnectDevice);
+        
+        async function connectDevice() {
+            try {
+                // 请求连接到心率设备
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{
+                        services: ['heart_rate']
+                    }]
+                });
+                
+                document.getElementById('status').textContent = '正在连接...';
+                
+                // 连接到GATT服务器
+                const server = await bluetoothDevice.gatt.connect();
+                
+                // 获取心率服务
+                const service = await server.getPrimaryService('heart_rate');
+                
+                // 获取心率测量特征
+                heartRateCharacteristic = await service.getCharacteristic('heart_rate_measurement');
+                
+                // 设置特征值变化通知
+                await heartRateCharacteristic.startNotifications();
+                
+                // 监听心率变化
+                heartRateCharacteristic.addEventListener('characteristicvaluechanged', handleHeartRateChanged);
+                
+                document.getElementById('status').textContent = '已连接到设备: ' + bluetoothDevice.name;
+                document.getElementById('connectButton').disabled = true;
+                document.getElementById('disconnectButton').disabled = false;
+                
+                // 设备断开连接事件处理
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+            } catch (error) {
+                console.error('连接失败:', error);
+                document.getElementById('status').textContent = '连接失败: ' + error.message;
+            }
+        }
+        
+        function handleHeartRateChanged(event) {
+            const value = event.target.value;
+            // 心率数据解析
+            const heartRate = parseHeartRate(value);
+            document.getElementById('heartRate').textContent = heartRate + ' BPM';
+        }
+        
+        function parseHeartRate(data) {
+            // 心率特征数据格式解析
+            const flags = data.getUint8(0);
+            const rate16Bits = flags & 0x1;
+            let heartRate;
+            
+            if (rate16Bits) {
+                heartRate = data.getUint16(1, /*littleEndian=*/true);
+            } else {
+                heartRate = data.getUint8(1);
+            }
+            
+            return heartRate;
+        }
+        
+        function disconnectDevice() {
+            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+                bluetoothDevice.gatt.disconnect();
+            }
+        }
+        
+        function onDisconnected() {
+            document.getElementById('status').textContent = '设备已断开连接';
+            document.getElementById('heartRate').textContent = '--';
+            document.getElementById('connectButton').disabled = false;
+            document.getElementById('disconnectButton').disabled = true;
+        }
+    </script>
+</body>
+</html>
