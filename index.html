@@ -43,7 +43,7 @@
       padding: 32px 16px;
       min-width: 180px;
       max-width: 220px;
-      height: 700px;
+      height: 800px;
       display: flex;
       flex-direction: column;
       gap: 24px;
@@ -251,6 +251,22 @@
     let powerBarChartDom = document.getElementById('powerBarChart');
     let powerBarChart = echarts.init(powerBarChartDom);
 
+    // 添加导入导出按钮
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = '导出数据';
+    exportBtn.className = 'btn';
+    exportBtn.onclick = exportData;
+    
+    const importBtn = document.createElement('button');
+    importBtn.textContent = '导入数据';
+    importBtn.className = 'btn';
+    importBtn.onclick = importData;
+    
+    // 将按钮添加到页面中
+    const sideCard = document.querySelector('.side-card');
+    sideCard.insertBefore(importBtn, sideCard.children[1]);
+    sideCard.insertBefore(exportBtn, sideCard.children[1]);
+
     // 统一颜色
     const colorVoltage = '#4F8FEA';   // 柔和蓝
     const colorCurrent = '#43C59E';   // 清新绿
@@ -450,6 +466,129 @@
         String(m).padStart(2, '0'),
         String(s).padStart(2, '0')
       ].join(':');
+    }
+
+    // 导出数据功能
+    function exportData() {
+      // 创建要导出的数据对象
+      const exportData = {
+        times: times,
+        voltages: voltages,
+        currents: currents,
+        powers: powers,
+        powerBuckets: powerBuckets,
+        currentBuckets: currentBuckets,
+        voltageBuckets: voltageBuckets,
+        startTime: startTime,
+        maxPower: document.getElementById('maxPower').textContent,
+        maxCurrent: document.getElementById('maxCurrent').textContent,
+        maxVoltage: document.getElementById('maxVoltage').textContent
+      };
+
+      // 创建 Blob 对象
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], {type: 'application/json'});
+      
+      // 创建下载链接
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `power-data-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    // 导入数据功能
+    function importData() {
+      // 创建文件输入元素
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.json';
+      
+      fileInput.onchange = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            // 断开设备连接（如果已连接）
+            if (device) {
+              device.close();
+              device = null;
+            }
+            
+            // 清空当前所有显示的数据
+            clearAllData();
+            
+            // 解析导入的数据
+            const importedData = JSON.parse(e.target.result);
+            
+            // 恢复数据
+            times = importedData.times || [];
+            voltages = importedData.voltages || [];
+            currents = importedData.currents || [];
+            powers = importedData.powers || [];
+            powerBuckets = importedData.powerBuckets || {};
+            currentBuckets = importedData.currentBuckets || {};
+            voltageBuckets = importedData.voltageBuckets || {};
+            startTime = importedData.startTime || null;
+            
+            // 更新图表
+            myChart.setOption({
+              xAxis: { data: times },
+              series: [
+                { data: voltages },
+                { data: currents },
+                { data: powers }
+              ]
+            });
+            
+            updatePowerBarChart();
+            
+            // 更新最大值显示
+            document.getElementById('maxPower').textContent = importedData.maxPower || '--';
+            document.getElementById('maxCurrent').textContent = importedData.maxCurrent || '--';
+            document.getElementById('maxVoltage').textContent = importedData.maxVoltage || '--';
+            
+          } catch (error) {
+            console.error('导入数据失败:', error);
+            alert('导入数据失败，请检查文件格式是否正确');
+          }
+        };
+        reader.readAsText(file);
+      };
+      
+      fileInput.click();
+    }
+
+    // 清空所有数据显示的函数
+    function clearAllData() {
+      times = [];
+      voltages = [];
+      currents = [];
+      powers = [];
+      powerBuckets = {};
+      currentBuckets = {};
+      voltageBuckets = {};
+      startTime = null;
+
+      
+      // 清空所有数值显示
+      document.getElementById('summaryVoltage').textContent = '--';
+      document.getElementById('summaryCurrent').textContent = '--';
+      document.getElementById('summaryPower').textContent = '--';
+      document.getElementById('summaryTime').textContent = '--';
+      document.getElementById('summaryAh').textContent = '--';
+      document.getElementById('summaryWh').textContent = '--';
+      document.getElementById('dVoltage1').textContent = '--';
+      document.getElementById('dVoltage2').textContent = '--';
+      document.getElementById('type').textContent = '--';
+      document.getElementById('maxPower').textContent = '--';
+      document.getElementById('maxCurrent').textContent = '--';
+      document.getElementById('maxVoltage').textContent = '--';
     }
 
     btnOpen.onclick = async () => {
