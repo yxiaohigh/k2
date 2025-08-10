@@ -397,6 +397,7 @@
       },
       series: [
         {
+          sampling: 'average',
           name: '电压',
           type: 'line',
           data: voltages,
@@ -404,6 +405,7 @@
           lineStyle: { color: colorVoltage, width: 3 }
         },
         {
+          sampling: 'average',
           name: '电流',
           type: 'line',
           data: currents,
@@ -411,6 +413,7 @@
           lineStyle: { color: colorCurrent, width: 3 }
         },
         {
+          sampling: 'average',
           name: '功率',
           type: 'line',
           data: powers,
@@ -463,21 +466,21 @@
         startTime = Date.now();
         lastTime = Date.now();
         let updateCount = 0; // 刷新计数器
-        const UPDATE_INTERVAL = 2; // 次采集刷新一次图
-        const INTERVAL = 500; //  毫秒采集一次
+        const UPDATE_INTERVAL = 50; // 次采集刷新一次图
+        const INTERVAL = 20; //  毫秒采集一次
 
         function updateMaxValues() {
           document.getElementById('maxPower').textContent = powers.length ? Math.max(...powers).toFixed(5) : '--';
-          document.getElementById('maxCurrent').textContent = currents.length ? Math.max(...currents).toFixed(5) : '--';
+          document.getElementById('maxCurrent').textContent = currents.length ? Math.max(...currents.map(Math.abs)).toFixed(5) : '--';
           document.getElementById('maxVoltage').textContent = voltages.length ? Math.max(...voltages).toFixed(5) : '--';
         }
 
         device.oninputreport = (event) => {
           let now = Date.now();
-          var elapsed= now - lastTime;
+          var elapsed = now - lastTime;
           if (elapsed >= INTERVAL) {
             lastTime = now;
-            times.push(Math.round((now - startTime)/ 1000));
+            times.push(Math.round((now - startTime) / 1000));
             let array = new Uint8Array(event.data.buffer);
             let hexstr = "";
             for (const data of array) {
@@ -598,7 +601,7 @@
         Ah: parseFloatLE(14).toFixed(5),
         Wh: parseFloatLE(18).toFixed(5),
         voltage: parseFloatLE(46).toFixed(5),
-        current: parseFloatLE(50).toFixed(5),
+        current:Math.abs(parseFloatLE(50).toFixed(5)),
         time: secondsToHMS(parseUInt16LE(22)),
         type: bytes[54]
       };
