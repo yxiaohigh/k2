@@ -599,6 +599,7 @@
         }
         device = devices[0];
         if (!device.opened) {
+          clearAllData()
           await device.open();
         }
 
