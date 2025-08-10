@@ -413,6 +413,7 @@
       },
       series: [
         {
+          sampling:'max',
           name: '电压',
           type: 'line',
           data: voltages,
@@ -420,6 +421,7 @@
           lineStyle: { color: colorVoltage, width: 3 }
         },
         {
+          sampling:'max',
           name: '电流',
           type: 'line',
           data: currents,
@@ -427,6 +429,7 @@
           lineStyle: { color: colorCurrent, width: 3 }
         },
         {
+          sampling:'max',
           name: '功率',
           type: 'line',
           data: powers,
@@ -596,7 +599,7 @@
         }
         device = devices[0];
         if (!device.opened) {
-          clearAllData()
+          // clearAllData()
           await device.open();
         }
 
