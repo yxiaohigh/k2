@@ -486,7 +486,7 @@
       };
 
       // 创建 Blob 对象
-      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataStr = JSON.stringify(exportData);
       const dataBlob = new Blob([dataStr], {type: 'application/json'});
       
       // 创建下载链接
@@ -605,8 +605,8 @@
         startTime = Date.now();
         lastTime = Date.now();
         let updateCount = 0; // 刷新计数器
-        const UPDATE_INTERVAL = 50; // 次采集刷新一次图
-        const INTERVAL = 20; //  毫秒采集一次
+        const UPDATE_INTERVAL = 5; // 次采集刷新一次图
+        const INTERVAL = 100; //  毫秒采集一次
 
         function updateMaxValues() {
           document.getElementById('maxPower').textContent = powers.length ? Math.max(...powers).toFixed(5) : '--';
